@@ -1,0 +1,23 @@
+<h1>{{ post.title }}</h1>
+<p>{{ post.content }}</p>
+
+<h2>Comments</h2>
+<ul>
+    {% for comment in comments %}
+        <li>{{ comment.author }}: {{ comment.content }}</li>
+    {% empty %}
+        <li>No comments yet.</li>
+    {% endfor %}
+</ul>
+
+<h3>Leave a comment:</h3>
+<form method="POST" action="{% url 'post_detail' post.pk %}">
+    {% csrf_token %}
+    <label for="author">Your name</label>
+    <input type="text" id="author" name="author" required>
+
+    <label for="content">Your comment</label>
+    <textarea id="content" name="content" required></textarea>
+
+    <button type="submit">Add Comment</button>
+</form>
