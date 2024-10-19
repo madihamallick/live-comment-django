@@ -36,19 +36,23 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'daphne',
     'django.contrib.staticfiles',
     'rest_framework',
     'posts',
-    'channels'
+    'channels',
 ]
 
 ASGI_APPLICATION = 'app.asgi.application'
 
 CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    },
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
 }
+
+LOGIN_REDIRECT_URL = "post_list"
+LOGOUT_REDIRECT_URL = "login-user"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

@@ -1,23 +1,49 @@
-<h1>{{ post.title }}</h1>
-<p>{{ post.content }}</p>
-
-<h2>Comments</h2>
-<ul>
-    {% for comment in comments %}
-        <li>{{ comment.author }}: {{ comment.content }}</li>
-    {% empty %}
-        <li>No comments yet.</li>
-    {% endfor %}
-</ul>
-
-<h3>Leave a comment:</h3>
-<form method="POST" action="{% url 'post_detail' post.pk %}">
-    {% csrf_token %}
-    <label for="author">Your name</label>
-    <input type="text" id="author" name="author" required>
-
-    <label for="content">Your comment</label>
-    <textarea id="content" name="content" required></textarea>
-
-    <button type="submit">Add Comment</button>
-</form>
+<!DOCTYPE html>
+<html>
+  <body>
+    <center><h1>Hello , Welcome to my chat site ! {{request.user}}</h1></center>
+    <br>
+    {% if request.user.is_authenticated  %}
+    <center> Logout the chat Page <a href = "{% url 'logout-user' %}">Logout</a></center>
+    {% endif %}
+    <div
+      class="chat__item__container"
+      id="id_chat_item_container"
+      style="font-size: 20px"
+    >
+      <br />
+      <input type="text" id="id_message_send_input" />
+      <button type="submit" id="id_message_send_button">Send Message</button>
+      <br />
+      <br />
+    </div>
+    <script>
+      const chatSocket = new WebSocket("ws://" + window.location.host + "/");
+      chatSocket.onopen = function (e) {
+        console.log("The connection was setup successfully !");
+      };
+      chatSocket.onclose = function (e) {
+        console.log("Something unexpected happened !");
+      };
+      document.querySelector("#id_message_send_input").focus();
+      document.querySelector("#id_message_send_input").onkeyup = function (e) {
+        if (e.keyCode == 13) {
+          document.querySelector("#id_message_send_button").click();
+        }
+      };
+      document.querySelector("#id_message_send_button").onclick = function (e) {
+        var messageInput = document.querySelector(
+          "#id_message_send_input"
+        ).value;
+        chatSocket.send(JSON.stringify({ message: messageInput, username : "{{request.user.username}}"}));
+      };
+      chatSocket.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+        var div = document.createElement("div");
+        div.innerHTML = data.username + " : " + data.message;
+        document.querySelector("#id_message_send_input").value = "";
+        document.querySelector("#id_chat_item_container").appendChild(div);
+      };
+    </script>
+  </body>
+</html>
