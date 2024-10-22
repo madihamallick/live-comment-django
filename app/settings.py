@@ -51,7 +51,7 @@ CHANNEL_LAYERS = {
     }
 }
 
-LOGIN_REDIRECT_URL = "post_list"
+LOGIN_REDIRECT_URL = "comment_list"
 LOGOUT_REDIRECT_URL = "login-user"
 
 MIDDLEWARE = [
