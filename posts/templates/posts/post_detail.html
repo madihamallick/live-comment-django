@@ -1,56 +1,252 @@
 <!DOCTYPE html>
-<html>
-  <body>
-    <center><h1>Hello, Welcome to my chat site! {{ request.user }}</h1></center>
-    <br>
-    {% if request.user.is_authenticated %}
-    <center>Logout the chat Page <a href="{% url 'logout-user' %}">Logout</a></center>
-    {% endif %}
-    <div
-      class="chat__item__container"
-      id="id_chat_item_container"
-      style="font-size: 20px"
-    >
-      <br />
-      <input type="text" id="id_message_send_input" />
-      <button type="submit" id="id_message_send_button">Send Message</button>
-      <br /><br />
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat Site</title>
+  <style>
+    .premise__card {
+      border: 1px solid #ccc;
+      padding: 20px;
+      margin: 20px;
+      cursor: pointer;
+      width: 300px;
+      display: inline-block;
+      text-align: center;
+      background-color: #f9f9f9;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.4);
+      padding-top: 60px;
+    }
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+    }
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+    }
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .parent-comment {
+      margin-bottom: 20px; /* Space below parent comment */
+    }
+  </style>
+</head>
+<body>
+  <center>
+    <h1>Hello, Welcome to my chat site! {{ request.user }}</h1>
+  </center>
+  <br />
+  {% if request.user.is_authenticated %}
+  <center>
+    Logout the chat Page <a href="{% url 'logout-user' %}">Logout</a>
+  </center>
+  {% endif %}
+
+  <div id="premise_container">
+    {% for premise in premises %}
+    <div class="premise__card" data-premise-id="{{ premise.id }}">
+      <h3>Premise {{ forloop.counter }}</h3>
+      <p>{{ premise.text|truncatewords:10 }}</p>
+      <button class="open_modal">View Comments</button>
     </div>
-    <script>
-      const chatSocket = new WebSocket("ws://" + window.location.host + "/");
+    {% endfor %}
+  </div>
 
-      chatSocket.onopen = function (e) {
-        console.log("The connection was set up successfully!");
-      };
+  <div id="commentModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Comments for Premise</h2>
+      <div id="id_chat_item_container" style="font-size: 20px">
+        <div id="comment_list"></div>
+        <br />
+        <input type="text" id="id_message_send_input" />
+        <button type="submit" id="id_message_send_button">Send Message</button>
 
-      chatSocket.onclose = function (e) {
-        console.log("Something unexpected happened!");
-      };
+        <div id="reply_input_template" style="display: none;">
+          <input type="text" class="reply_input" placeholder="Write a reply..." />
+          <button class="reply_button">Reply</button>
+        </div>
 
-      document.querySelector("#id_message_send_input").focus();
-      document.querySelector("#id_message_send_input").onkeyup = function (e) {
-        if (e.keyCode == 13) {
-          document.querySelector("#id_message_send_button").click();
+        <br /><br />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedPremiseId = null;
+    let chatSocket = null;
+
+    // Handle opening the modal
+    const modal = document.getElementById("commentModal");
+    const closeModal = document.querySelector(".close");
+
+    document.querySelectorAll(".open_modal").forEach((button) => {
+      button.addEventListener("click", async function (e) {
+        const premiseCard = e.target.closest(".premise__card");
+        selectedPremiseId = premiseCard.getAttribute("data-premise-id");
+
+        // Clear previous comments when switching premises
+        document.querySelector("#comment_list").innerHTML = "";  // Clear the comment list
+
+        // Fetch existing comments from the server
+        const response = await fetch(`/get_comments/${selectedPremiseId}/`);
+        const comments = await response.json();
+
+        comments.forEach(comment => {
+            const div = document.createElement("div");
+            div.setAttribute("data-comment-id", comment.id);  // Set the comment ID
+            div.style.marginBottom = "2rem";  // Space between comments
+            div.innerHTML = comment.user + ": " + comment.message;
+
+            // Add replies if they exist
+            comment.replies.forEach(reply => {
+                const replyDiv = document.createElement("div");
+                replyDiv.style.marginLeft = "20px";  // Indent for reply
+                replyDiv.innerHTML = reply.user + " (reply): " + reply.message;
+                div.appendChild(replyDiv);
+            });
+
+            // Add the reply input under each comment
+            const replyInput = addReplyInput(comment.id);
+            div.appendChild(replyInput);
+
+            document.querySelector("#comment_list").appendChild(div);
+        });
+
+        // Open modal
+        modal.style.display = "block";
+        modal.style.marginBottom = "2rem";
+
+        // Close the previous WebSocket if open
+        if (chatSocket) {
+          chatSocket.close();
         }
-      };
 
-      document.querySelector("#id_message_send_button").onclick = function (e) {
-        const messageInput = document.querySelector("#id_message_send_input").value;
+        // Initialize WebSocket for the specific premise
+        chatSocket = new WebSocket("ws://" + window.location.host + "/ws/premise/" + selectedPremiseId + "/");
+
+        chatSocket.onopen = function (e) {
+          console.log("WebSocket connected for Premise:", selectedPremiseId);
+        };
+
+        chatSocket.onclose = function (e) {
+          console.log("WebSocket closed for Premise:", selectedPremiseId);
+        };
+
+        // Handle incoming messages (comments and replies)
+        chatSocket.onmessage = function (e) {
+          const data = JSON.parse(e.data);
+          const div = document.createElement("div");
+
+          if (data.is_reply) {
+            // Find the parent comment to add the reply under
+            const parentComment = document.querySelector(`[data-comment-id='${data.parent_id}']`);
+            if (parentComment) {
+              const replyDiv = document.createElement("div");
+              replyDiv.style.marginLeft = "20px";  // Indent for reply
+              replyDiv.innerHTML = data.user + " (reply): " + data.message;
+              parentComment.appendChild(replyDiv);
+
+              parentComment.classList.add("parent-comment");
+            }
+          } else {
+            // New comment
+            div.setAttribute("data-comment-id", Date.now());  // Assign a unique ID for replies
+            div.style.marginBottom = "2rem"
+            div.innerHTML = data.user + ": " + data.message;
+
+            // Add the reply input under each comment
+            const replyInput = addReplyInput(Date.now());
+            div.appendChild(replyInput);
+
+            document.querySelector("#comment_list").appendChild(div);
+          }
+        };
+
+        // Handle sending messages (comments)
+        document.querySelector("#id_message_send_button").onclick = function () {
+          const messageInput = document.querySelector("#id_message_send_input").value;
+          chatSocket.send(
+            JSON.stringify({
+              message: messageInput,
+              username: "{{ request.user.username }}",
+              is_reply: false  // Indicate it's a new comment
+            })
+          );
+          document.querySelector("#id_message_send_input").value = "";
+        };
+      });
+    });
+
+    // Handle closing the modal
+    closeModal.onclick = function () {
+      modal.style.display = "none";
+      if (chatSocket) {
+        chatSocket.close(); // Close the WebSocket when modal is closed
+      }
+    };
+
+    // Close the modal if user clicks outside of it
+    window.onclick = function (event) {
+      if (event.target == modal) {
+        modal.style.display = "none";
+        if (chatSocket) {
+          chatSocket.close();
+        }
+      }
+    };
+
+    // Handle Enter key for sending messages
+    document.querySelector("#id_message_send_input").onkeyup = function (e) {
+      if (e.keyCode == 13) {
+        document.querySelector("#id_message_send_button").click();
+      }
+    };
+
+    // Add a reply input under each comment
+    function addReplyInput(parentId) {
+      const replyTemplate = document.querySelector("#reply_input_template").cloneNode(true);
+      replyTemplate.style.display = "block";
+      replyTemplate.id = "";
+
+      const replyButton = replyTemplate.querySelector(".reply_button");
+      const replyInput = replyTemplate.querySelector(".reply_input");
+
+      replyButton.onclick = function () {
+        const messageInput = replyInput.value;
         chatSocket.send(
           JSON.stringify({
             message: messageInput,
+            parent_id: parentId,
             username: "{{ request.user.username }}",
+            is_reply: true  // Indicate it's a reply
           })
         );
+        replyInput.value = "";  // Clear the reply input
       };
 
-      chatSocket.onmessage = function (e) {
-        const data = JSON.parse(e.data);
-        const div = document.createElement("div");
-        div.innerHTML = data.username + " : " + data.message;
-        document.querySelector("#id_message_send_input").value = "";
-        document.querySelector("#id_chat_item_container").appendChild(div);
-      };
-    </script>
-  </body>
+      return replyTemplate;
+    }
+  </script>
+</body>
 </html>
