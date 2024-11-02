@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from .models import Premise, Comment, ReplyOnComment
 from django.http import JsonResponse
 
-def comment_list(request, *args, **kwargs):
+def premise_list(request, *args, **kwargs):
     if not request.user.is_authenticated:
         return redirect("login-user")
 
@@ -16,7 +16,7 @@ def comment_list(request, *args, **kwargs):
     return render(request, "posts/post_detail.html", context)
 
 def get_comments(request, premise_id):
-    comments = Comment.objects.filter(premise_id=premise_id).prefetch_related('replies')  # Assuming a reverse relation
+    comments = Comment.objects.filter(premise_id=premise_id).prefetch_related('replies')
     data = []
 
     for comment in comments:

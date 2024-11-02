@@ -1,10 +1,6 @@
 from django.contrib import admin
 from . import models
 
-# @admin.register(Comment)
-# class CommentAdmin(admin.ModelAdmin):
-#     list_display = ('username', 'message', 'timestamp')
-
 class PremiseDatabaseadmin(admin.ModelAdmin):
     list_display = ("id", "created_at", "created_by")
 

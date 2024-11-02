@@ -3,16 +3,6 @@ import uuid
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
-
-# class Comment(models.Model):
-#     username = models.CharField(max_length=255)
-#     message = models.TextField()
-#     timestamp = models.DateTimeField(auto_now_add=True)
-
-#     def __str__(self):
-#         return f'{self.username}: {self.message[:20]}'
-
-
 class Premise(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     text =  models.TextField()
@@ -23,10 +13,6 @@ class Premise(models.Model):
 
     def __str__(self):
         return str(self.id)
-
-    # class Meta:
-    #     ordering = ("-updated_at",)
-
 
 class Comment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
@@ -43,9 +29,6 @@ class Comment(models.Model):
     def __str__(self):
         return str(self.id)
 
-    # class Meta:
-    #     ordering = ("-updated_at",)
-
 class ReplyOnComment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="commenter_reply")
@@ -58,6 +41,3 @@ class ReplyOnComment(models.Model):
 
     def __str__(self):
         return str(self.id)
-
-    # class Meta:
-    #     ordering = ("-updated_at",)

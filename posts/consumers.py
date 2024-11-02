@@ -3,7 +3,6 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from .models import Comment, ReplyOnComment
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
-from .utils import serialize_comment
 
 User = get_user_model()
 class CommentConsumer(AsyncWebsocketConsumer):
@@ -18,13 +17,6 @@ class CommentConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
-        # comments = await self.get_existing_comments()
-        # for comment in comments:
-            # comment_data = serialize_comment(comment)
-            # await self.send(text_data=json.dumps(comment_data))
-            # await self.send(text_data=json.dumps(comment))
-
-
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
             self.room_group_name,
@@ -35,6 +27,7 @@ class CommentConsumer(AsyncWebsocketConsumer):
         text_data_json = json.loads(text_data)
         message = text_data_json['message']
         user = self.scope['user']
+        # recive the rest we need for ai reply
 
         if 'parent_id' in text_data_json:
             parent_id = text_data_json['parent_id']
@@ -48,8 +41,8 @@ class CommentConsumer(AsyncWebsocketConsumer):
                     'type': 'chat_message',
                     'message': message,
                     'user': user.username,
-                    'is_reply': 'parent_id' in text_data_json,  # Track if it's a reply
-                    'parent_id': parent_id if 'parent_id' in text_data_json else None  # Include parent ID if it's a reply
+                    'is_reply': 'parent_id' in text_data_json,
+                    'parent_id': parent_id if 'parent_id' in text_data_json else None
                 }
             )
 
@@ -63,13 +56,15 @@ class CommentConsumer(AsyncWebsocketConsumer):
             'message': message,
             'user': user,
             'is_reply': is_reply,
-            'parent_id': parent_id if parent_id else None  # Convert to string
+            'parent_id': parent_id if parent_id else None
         }))
 
     @database_sync_to_async
     def save_comment(self, user_id, message):
         print(f"Saving comment for premise_id: {self.premise_id}")
         Comment.objects.create(user_id=user_id, premise_id=self.premise_id, text=message)
+        # add ai reply according the all condn add the codes here
+        # If suggest handle that as well
 
     @database_sync_to_async
     def save_reply(self, user_id, message, parent_id):
@@ -82,20 +77,4 @@ class CommentConsumer(AsyncWebsocketConsumer):
             return
 
         ReplyOnComment.objects.create(user_id=user_id, text=message, reply_id=parent_id)
-
-    @database_sync_to_async
-    def get_existing_comments(self):
-        comments = Comment.objects.filter(premise_id=self.premise_id).prefetch_related('replies')
-        data = []
-
-        for comment in comments:
-            replies = ReplyOnComment.objects.filter(reply_id=comment.id)
-            replies_data = [{'user': reply.user.username, 'message': reply.text} for reply in replies]
-            data.append({
-                'id': comment.id,
-                'user': comment.user.username,
-                'message': comment.text,
-                'replies': replies_data
-            })
-
-        return data
+        # add ai reply according the all condn add the codes here
